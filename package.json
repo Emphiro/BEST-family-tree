@@ -1,0 +1,25 @@
+{
+  "name": "tree-project",
+  "version": "1.0.0",
+  "description": "Visualize the family system as an automtically generated tree",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "Janick",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "css-loader": "^7.1.2",
+    "html-webpack-plugin": "^5.6.4",
+    "mini-css-extract-plugin": "^2.9.4",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "typescript-loader": "^0.0.0",
+    "webpack": "^5.102.0",
+    "webpack-cli": "^6.0.1"
+  }
+}

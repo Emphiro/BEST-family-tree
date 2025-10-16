@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+	"module": "nodenext",
+	"lib": ["es2018", "dom"],
+	"target": "es2017",
+	"noImplicitAny": true,
+	"noEmitOnError": true,
+	"moduleResolution": "nodenext",
+	"resolveJsonModule": true,
+	"allowSyntheticDefaultImports": true,
+    },
+	
+    "include": ["src/**/*"],
+    "exclude": ["node_modules"],
+}
