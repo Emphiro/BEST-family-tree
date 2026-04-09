@@ -1,18 +1,12 @@
-import {
-    setupTree,
-    Node,
-    drawTree,
-    updateTreePositions,
-    setRadialSpacing,
-    Status,
-} from "./tree";
+import { Node, setRadialSpacing, Status, intersectLogo } from "./tree";
+
+import TreeRenderer from "./treeRenderer";
 
 let selected_family: number = 0;
 
 const family_names: string[] = ["Perry Family", "Tea Family"];
 
 let lastTime: number = 0;
-let rootNode: Node = new Node("Root", Status.ROOT);
 let ctx: CanvasRenderingContext2D;
 let canvas: HTMLCanvasElement;
 const header: HTMLElement = document.querySelector("#header");
@@ -27,8 +21,10 @@ let oldX: number = 0;
 let oldY: number = 0;
 let dragged: boolean = false;
 let radialSpacing = 0;
-let mouseX = 0;
-let mouseY = 0;
+let mouseX: number = null;
+let mouseY: number = null;
+
+let treeRenderer = new TreeRenderer(radialSpacing);
 
 function clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max);
@@ -43,11 +39,11 @@ function update(deltaTime: number) {
             clamp(
                 Math.abs(targetRadialSpacing - radialSpacing) / 100,
                 minSpreadingSpeed,
-                maxSpreadingSpeed
+                maxSpreadingSpeed,
             );
         radialSpacing += Math.min(
             acceleration,
-            targetRadialSpacing - radialSpacing
+            targetRadialSpacing - radialSpacing,
         );
         setRadialSpacing(radialSpacing);
     } else if (radialSpacing > targetRadialSpacing + radialSpacingEpsilon) {
@@ -56,15 +52,16 @@ function update(deltaTime: number) {
             clamp(
                 Math.abs(targetRadialSpacing - radialSpacing) / 100,
                 minSpreadingSpeed,
-                maxSpreadingSpeed
+                maxSpreadingSpeed,
             );
         radialSpacing -= Math.min(
             acceleration,
-            radialSpacing - targetRadialSpacing
+            radialSpacing - targetRadialSpacing,
         );
         setRadialSpacing(radialSpacing);
     }
     draw();
+    treeRenderer.draw(ctx);
 
     // Example: move a sprite, update physics, etc.
 }
@@ -82,13 +79,18 @@ function gameLoop(timestamp: number) {
 function draw() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight - header.offsetHeight;
+
     ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset any existing transforms
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY); // Apply new transforms
 
-    updateTreePositions(rootNode);
-    drawTree(ctx, rootNode);
-    drawMousePos();
+    treeRenderer.draw(ctx);
+}
+
+function check_clicked_switch_families(x: number, y: number) {
+    if (intersectLogo(treeRenderer.mouseX, treeRenderer.mouseY, canvas)) {
+        switch_families();
+    }
 }
 
 // Start the loop
@@ -122,6 +124,7 @@ export function load() {
         dragged = true;
         oldX = event.clientX;
         oldY = event.clientY;
+        check_clicked_switch_families(event.clientX, event.clientY);
     });
     document.addEventListener("mousemove", (event) => {
         if (dragged) {
@@ -187,7 +190,7 @@ export function load() {
             }
             event.preventDefault();
         },
-        { passive: false }
+        { passive: false },
     );
 
     canvas.addEventListener("touchend", (event) => {
@@ -201,7 +204,7 @@ export function load() {
     let button = document.getElementById("family-switch-button");
     button.addEventListener("click", switch_families);
 
-    rootNode = setupTree();
+    treeRenderer.setupTree();
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
 }
@@ -213,7 +216,7 @@ function switch_families() {
     selected_family = (selected_family + 1) % family_names.length;
     button.classList.add("family-button-" + selected_family);
     name_header.innerText = family_names[selected_family] + " Tree";
-    rootNode = setupTree(selected_family);
+    treeRenderer.setupTree(selected_family);
     radialSpacing = 0;
     targetRadialSpacing = 100;
     setRadialSpacing(radialSpacing);
@@ -223,17 +226,18 @@ function switch_families() {
 
 function getMousePos(event: MouseEvent): { x: number; y: number } {
     const rect = canvas.getBoundingClientRect();
-    mouseX = (event.clientX - rect.left - offsetX) / scale;
-    mouseY = (event.clientY - rect.top - offsetY) / scale;
+    let mouseX = (event.clientX - rect.left - offsetX) / scale;
+    let mouseY = (event.clientY - rect.top - offsetY) / scale;
+    treeRenderer.setMousePos(mouseX, mouseY);
     return {
         x: mouseX,
         y: mouseY,
     };
 }
 
-function drawMousePos() {
-    const pos = { x: mouseX, y: mouseY };
-    console.log("drawing mouse pos at", pos);
-    ctx.fillStyle = "red";
-    ctx.fillRect(pos.x, pos.y, 4, 4);
-}
+//function drawMousePos() {
+//    const pos = { x: mouseX, y: mouseY };
+//    console.log("drawing mouse pos at", pos);
+//    ctx.fillStyle = "red";
+//    ctx.fillRect(pos.x, pos.y, 4, 4);
+//}

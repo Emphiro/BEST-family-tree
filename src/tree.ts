@@ -3,6 +3,7 @@ const horizontalSpacing = 70;
 let radialSpacing = 70;
 const centerSpacing = 150;
 const lineWidth = 2;
+const logoSize = centerSpacing - 25;
 
 const lineColor = "#ffffff";
 const textColor = "#ffffff";
@@ -56,7 +57,8 @@ let logos: Array<HTMLImageElement> = [];
 
 export class Node {
     name: string;
-    parent: string | null;
+    id: number;
+    parent: number | null;
     children: Array<Node>;
     status: Status;
     position: { x: number; y: number };
@@ -65,8 +67,14 @@ export class Node {
     angularInterval: number;
     weight: number;
 
-    constructor(name: string, status: Status, parent: string | null = null) {
+    constructor(
+        name: string,
+        id: number,
+        status: Status,
+        parent: number | null = null,
+    ) {
         this.name = name;
+        this.id = id;
         this.children = [];
         this.status = status;
         this.parent = parent;
@@ -76,20 +84,20 @@ export class Node {
         this.children.push(child);
     }
 
-    removeChild(name: string) {
-        this.children = this.children.filter((child) => child.name !== name);
+    removeChild(id: number) {
+        this.children = this.children.filter((child) => child.id !== id);
     }
 
     getChildren(): Array<Node> {
         return this.children;
     }
 
-    findNode(name: string): Node | null {
-        if (this.name === name) {
+    findNode(id: number): Node | null {
+        if (this.id === id) {
             return this;
         }
         for (const child of this.children) {
-            const found = child.findNode(name);
+            const found = child.findNode(id);
             if (found) {
                 return found;
             }
@@ -120,7 +128,7 @@ export class Node {
     }
 
     generateTreeMap(
-        map: Map<number, Array<Node>> = new Map()
+        map: Map<number, Array<Node>> = new Map(),
     ): Map<number, Array<Node>> {
         if (!map.has(this.depth)) {
             map.set(this.depth, []);
@@ -136,7 +144,7 @@ export class Node {
         parentInterval: number,
         parentAngle: number,
         parentWeight: number,
-        accumulatedWeight: number = 0
+        accumulatedWeight: number = 0,
     ) {
         this.angularInterval = (parentInterval * this.weight) / parentWeight;
         let accumulatedInterval =
@@ -150,7 +158,7 @@ export class Node {
                 this.angularInterval,
                 this.angularCoordinate,
                 this.weight,
-                accumulated
+                accumulated,
             );
         }
 
@@ -179,14 +187,14 @@ export class Node {
 
 function calculatePositions(
     treeMap: Map<number, Array<Node>>,
-    maxDepth: number
+    maxDepth: number,
 ) {
     for (let depth = 0; depth <= maxDepth; depth++) {
         const nodesAtDepth = treeMap.get(depth);
         const basePos = ((-nodesAtDepth.length + 1) * horizontalSpacing) / 2;
         for (const node of nodesAtDepth) {
             node.setPosition(
-                basePos + nodesAtDepth.indexOf(node) * horizontalSpacing
+                basePos + nodesAtDepth.indexOf(node) * horizontalSpacing,
             );
         }
     }
@@ -196,12 +204,12 @@ export function setRadialSpacing(newSpacing: number) {
     radialSpacing = newSpacing;
 }
 
-function addChildToTree(rootNode: Node, parentName: string, member: Node) {
-    const parentNode = rootNode.findNode(parentName);
+function addChildToTree(rootNode: Node, parentId: number, member: Node) {
+    const parentNode = rootNode.findNode(parentId);
     for (const fatherless of rootNode.getChildren()) {
-        if (fatherless.parent === member.name) {
+        if (fatherless.parent === member.id) {
             member.addChild(fatherless);
-            rootNode.removeChild(fatherless.name);
+            rootNode.removeChild(fatherless.id);
         }
     }
     if (parentNode) {
@@ -216,7 +224,7 @@ function drawLine(
     startX: number,
     startY: number,
     endX: number,
-    endY: number
+    endY: number,
 ) {
     ctx.beginPath();
     ctx.moveTo(startX, startY);
@@ -226,9 +234,14 @@ function drawLine(
     ctx.stroke();
 }
 
-function drawNode(ctx: CanvasRenderingContext2D, node: Node) {
+function drawNode(
+    ctx: CanvasRenderingContext2D,
+    node: Node,
+    mouse_x: number = null,
+    mouse_y: number = null,
+) {
     if (node.status === Status.ROOT) {
-        drawLogo(ctx, node);
+        drawLogo(ctx, node, mouse_x, mouse_y);
         return;
     }
     // Dynamically calculate box width based on text length
@@ -251,7 +264,7 @@ function drawNode(ctx: CanvasRenderingContext2D, node: Node) {
         x + boxWidth,
         y + boxHeight,
         x + boxWidth - cornerRadius,
-        y + boxHeight
+        y + boxHeight,
     );
     ctx.lineTo(x + cornerRadius, y + boxHeight);
     ctx.quadraticCurveTo(x, y + boxHeight, x, y + boxHeight - cornerRadius);
@@ -272,7 +285,12 @@ function drawNode(ctx: CanvasRenderingContext2D, node: Node) {
     ctx.fillText(node.name, node.position.x, node.position.y);
 }
 
-export function drawTree(ctx: CanvasRenderingContext2D, node: Node) {
+export function drawTree(
+    ctx: CanvasRenderingContext2D,
+    node: Node,
+    mouse_x: number = null,
+    mouse_y: number = null,
+) {
     node.angularToCartesian();
     for (const child of node.getChildren()) {
         drawLine(
@@ -280,11 +298,11 @@ export function drawTree(ctx: CanvasRenderingContext2D, node: Node) {
             node.position.x,
             node.position.y,
             child.position.x,
-            child.position.y
+            child.position.y,
         );
-        drawTree(ctx, child);
+        drawTree(ctx, child, mouse_x, mouse_y);
     }
-    drawNode(ctx, node);
+    drawNode(ctx, node, mouse_x, mouse_y);
 }
 
 export function updateTreePositions(node: Node) {
@@ -295,13 +313,13 @@ import data0 from "../data_extraction/members_0.json";
 import data1 from "../data_extraction/members_1.json";
 const data = [data0, data1];
 function loadJsonTree(family: number): Node {
-    const rootNode = new Node("root", Status.ROOT);
+    const rootNode = new Node("root", -1, Status.ROOT);
     const membersMap = new Map<string, Node>();
 
     for (const member of data[family]) {
-        const { name, parent, status } = member;
+        const { name, id, parent, status } = member;
         const memberStatus: Status = Status[status as keyof typeof Status];
-        const node = new Node(name, memberStatus, parent);
+        const node = new Node(name, id, memberStatus, parent);
         addChildToTree(rootNode, parent, node);
     }
 
@@ -315,16 +333,20 @@ function loadJsonTree(family: number): Node {
     rootNode.calculateAngularCoordinates(
         rootNode.angularInterval,
         rootNode.angularCoordinate,
-        rootNode.weight
+        rootNode.weight,
     );
     rootNode.angularToCartesian();
     return rootNode;
 }
 
-function drawLogo(ctx: CanvasRenderingContext2D, node: Node) {
+function drawLogo(
+    ctx: CanvasRenderingContext2D,
+    node: Node,
+    mouse_x: number = null,
+    mouse_y: number = null,
+) {
     const logo = logos[family_number];
     logo.src = logo_src[family_number];
-    const logoSize = centerSpacing - 25;
 
     // Draw a grey circle as background for the logo
     ctx.save();
@@ -346,14 +368,39 @@ function drawLogo(ctx: CanvasRenderingContext2D, node: Node) {
         node.position.x - logoSize / 2,
         node.position.y - logoSize / 2,
         logoSize,
-        logoSize
+        logoSize,
     );
     ctx.restore();
+    let selected = false;
+    if (
+        mouse_x != null &&
+        mouse_y != null &&
+        intersectLogo(mouse_x, mouse_y, ctx.canvas)
+    ) {
+        selected = true;
+    }
 
     // Draw border
+    if (selected) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(node.position.x, node.position.y, logoSize / 2, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.4)"; // transparent grey overlay
+        ctx.fill();
+        ctx.restore();
+    }
     ctx.beginPath();
     ctx.arc(node.position.x, node.position.y, logoSize / 2, 0, Math.PI * 2);
     ctx.lineWidth = 2;
     ctx.strokeStyle = lineColor;
     ctx.stroke();
+}
+
+export function intersectLogo(
+    x: number,
+    y: number,
+    canvas: HTMLCanvasElement,
+): boolean {
+    return x * x + y * y <= (logoSize / 2) * (logoSize / 2);
 }
